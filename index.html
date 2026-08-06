@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    
+    <meta name="theme-color" content="#ffffff">
+    
+    <link rel="shortcut icon" type="image/png" href="https://i.imghippo.com/files/F2741Cc.png" />
+    <title>DI-SMADA</title>
+    
+    <link rel="manifest" href="manifest-v2.json">
+
+    <style>
+        html, body {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            overflow: hidden; font-family: Arial, sans-serif;
+            background-color: #ffffff; /* Pastikan background putih */
+        }
+        body { display: flex; flex-direction: column; }
+        
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            color: #333;
+            z-index: 2000;
+            /* Sembunyikan secara default, akan diaktifkan oleh JS jika perlu */
+            display: none;
+        }
+
+        #appFrame { 
+            flex-grow: 1; 
+            border: none; 
+            width: 100%; 
+            height: 100%;
+            /* Secara default akan terlihat, JS akan menyembunyikannya jika loading screen aktif */
+            visibility: visible; 
+        }
+
+        #installButton {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%); z-index: 1000;
+            background-color: #4CAF50; color: white;
+            padding: 12px 24px; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 16px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+        #installButton:hover { background-color: #45a049; }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <span>Memuat Aplikasi...</span>
+    </div>
+
+    <iframe  
+        id="appFrame"
+        src="https://script.google.com/macros/s/AKfycbwuVvQVrF8yF1BRttEnjebAybyEdct9-zoa9eAonRzAH2NYDZ1wFsp9dnzjrnZ_c7sL/exec"
+        allowfullscreen="true"
+        allow="camera">
+        Browser Anda tidak mendukung iframe.
+    </iframe>
+
+    <button id="installButton">Install Aplikasi 🚀</button>
+
+    <script>
+        let deferredPrompt;
+        const installButton = document.getElementById('installButton');
+        const appFrame = document.getElementById('appFrame');
+        const loadingScreen = document.getElementById('loading-screen');
+
+        // Fungsi untuk mengecek apakah perangkat adalah mobile
+        function isMobile() {
+            return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        }
+
+        // Cek apakah aplikasi berjalan dalam mode standalone (sudah di-install)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+
+        if (isStandalone) {
+            // Jika sudah di-install, tampilkan loading screen dan sembunyikan iframe
+            loadingScreen.style.display = 'flex';
+            appFrame.style.visibility = 'hidden';
+
+            // Tambahkan event listener untuk menunggu iframe selesai load
+            appFrame.addEventListener('load', () => {
+                // Setelah iframe load, sembunyikan loading screen dan tampilkan iframe
+                loadingScreen.style.display = 'none';
+                appFrame.style.visibility = 'visible';
+            });
+        }
+        
+        // Sembunyikan tombol install secara default jika sudah standalone
+        if (isStandalone) {
+            installButton.style.display = 'none';
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Cek jika belum diinstall baru jalankan logic prompt
+            if (!isStandalone) {
+                e.preventDefault();
+                deferredPrompt = e;
+
+                // Tampilkan tombol HANYA jika di perangkat mobile
+                if (isMobile()) {
+                    installButton.style.display = 'block';
+
+                    // Atur timer untuk menyembunyikan tombol setelah 15 detik
+                    setTimeout(() => {
+                        if (installButton.style.display === 'block') {
+                            installButton.style.display = 'none';
+                        }
+                    }, 15000); // 15 detik
+                }
+            }
+        });
+        
+        installButton.addEventListener('click', async () => {
+            installButton.style.display = 'none';
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                await deferredPrompt.userChoice;
+                deferredPrompt = null;
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+            installButton.style.display = 'none';
+            deferredPrompt = null;
+        });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw-v2.js')
+                    .then(registration => console.log('Service Worker v2 terdaftar:', registration.scope))
+                    .catch(error => console.error('Pendaftaran Service Worker v2 gagal:', error));
+            });
+        }
+    </script>
+</body>
+</html>
