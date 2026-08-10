@@ -1,148 +1,71 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-    
-    <meta name="theme-color" content="#ffffff">
-    
-    <link rel="shortcut icon" type="image/png" href="https://i.imghippo.com/files/F2741Cc.png" />
-    <title>DI-SMADA</title>
-    
-    <link rel="manifest" href="manifest-v2.json">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+  <meta name="theme-color" content="#0369A1">
+  <title>DI-SMADA</title>
 
-    <style>
-        html, body {
-            margin: 0; padding: 0; height: 100%; width: 100%;
-            overflow: hidden; font-family: Arial, sans-serif;
-            background-color: #ffffff; /* Pastikan background putih */
-        }
-        body { display: flex; flex-direction: column; }
-        
-        #loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 18px;
-            color: #333;
-            z-index: 2000;
-            /* Sembunyikan secara default, akan diaktifkan oleh JS jika perlu */
-            display: none;
-        }
+  <!-- Jika Anda sudah punya manifest.json & service worker untuk fitur "Install Aplikasi",
+       biarkan baris ini tetap ada (sesuaikan path-nya jika berbeda). -->
+  <link rel="manifest" href="./manifest.json">
 
-        #appFrame { 
-            flex-grow: 1; 
-            border: none; 
-            width: 100%; 
-            height: 100%;
-            /* Secara default akan terlihat, JS akan menyembunyikannya jika loading screen aktif */
-            visibility: visible; 
-        }
-
-        #installButton {
-            position: fixed; bottom: 20px; left: 50%;
-            transform: translateX(-50%); z-index: 1000;
-            background-color: #4CAF50; color: white;
-            padding: 12px 24px; border: none; border-radius: 8px;
-            cursor: pointer; font-size: 16px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            display: none;
-        }
-        #installButton:hover { background-color: #45a049; }
-    </style>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Poppins', Arial, sans-serif;
+      background: linear-gradient(135deg, #075985 0%, #0369A1 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: white;
+      padding: 24px;
+    }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 8px; }
+    p { font-size: 0.85rem; color: rgba(255,255,255,0.85); margin: 0 0 20px; max-width: 320px; }
+    a.manual-link {
+      color: white;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    a.manual-link:hover { background: rgba(255,255,255,0.25); }
+  </style>
 </head>
 <body>
-    <div id="loading-screen">
-        <span>Memuat Aplikasi...</span>
-    </div>
+  <div class="spinner"></div>
+  <h1>Memuat Aplikasi...</h1>
+  <p>Anda akan dialihkan otomatis ke aplikasi DI SMADA. Jika tidak berpindah dalam beberapa detik, tekan tombol di bawah.</p>
+  <a class="manual-link" id="manual-link" href="#">Buka Aplikasi Sekarang</a>
 
-    <iframe 
-  src="https://script.google.com/macros/s/AKfycbzvGSo0ZjpvnqmsoFJx6tbcgDvugOoxPT5fL0MCYtDfGrdq0bBulCdNVfED9_2EW5WK/exec" 
-  allow="geolocation; camera"
-  style="width:100%; height:100vh; border:none;">
-</iframe>
+  <script>
+    // GANTI URL INI jika suatu saat link deployment Apps Script Anda berubah.
+    const APP_URL = "https://script.google.com/macros/s/AKfycbzvGSo0ZjpvnqmsoFJx6tbcgDvugOoxPT5fL0MCYtDfGrdq0bBulCdNVfED9_2EW5WK/exec";
 
-    <button id="installButton">Install Aplikasi 🚀</button>
+    document.getElementById('manual-link').href = APP_URL;
 
-    <script>
-        let deferredPrompt;
-        const installButton = document.getElementById('installButton');
-        const appFrame = document.getElementById('appFrame');
-        const loadingScreen = document.getElementById('loading-screen');
-
-        // Fungsi untuk mengecek apakah perangkat adalah mobile
-        function isMobile() {
-            return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        }
-
-        // Cek apakah aplikasi berjalan dalam mode standalone (sudah di-install)
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-
-        if (isStandalone) {
-            // Jika sudah di-install, tampilkan loading screen dan sembunyikan iframe
-            loadingScreen.style.display = 'flex';
-            appFrame.style.visibility = 'hidden';
-
-            // Tambahkan event listener untuk menunggu iframe selesai load
-            appFrame.addEventListener('load', () => {
-                // Setelah iframe load, sembunyikan loading screen dan tampilkan iframe
-                loadingScreen.style.display = 'none';
-                appFrame.style.visibility = 'visible';
-            });
-        }
-        
-        // Sembunyikan tombol install secara default jika sudah standalone
-        if (isStandalone) {
-            installButton.style.display = 'none';
-        }
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Cek jika belum diinstall baru jalankan logic prompt
-            if (!isStandalone) {
-                e.preventDefault();
-                deferredPrompt = e;
-
-                // Tampilkan tombol HANYA jika di perangkat mobile
-                if (isMobile()) {
-                    installButton.style.display = 'block';
-
-                    // Atur timer untuk menyembunyikan tombol setelah 15 detik
-                    setTimeout(() => {
-                        if (installButton.style.display === 'block') {
-                            installButton.style.display = 'none';
-                        }
-                    }, 15000); // 15 detik
-                }
-            }
-        });
-        
-        installButton.addEventListener('click', async () => {
-            installButton.style.display = 'none';
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                await deferredPrompt.userChoice;
-                deferredPrompt = null;
-            }
-        });
-
-        window.addEventListener('appinstalled', () => {
-            installButton.style.display = 'none';
-            deferredPrompt = null;
-        });
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw-v2.js')
-                    .then(registration => console.log('Service Worker v2 terdaftar:', registration.scope))
-                    .catch(error => console.error('Pendaftaran Service Worker v2 gagal:', error));
-            });
-        }
-    </script>
+    // [PERBAIKAN UTAMA] Redirect langsung (top-level navigation), BUKAN iframe.
+    // Ini menghindari masalah Google memblokir halaman login/consent-nya sendiri
+    // saat dimuat di dalam iframe -- terutama saat dijalankan sebagai PWA/APK terinstall.
+    window.location.replace(APP_URL);
+  </script>
 </body>
 </html>
